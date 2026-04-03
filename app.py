@@ -45,10 +45,15 @@ def save_user_id(user_id):
 
 
 def load_user_id():
+    # まずファイルから読む（Webhook経由で保存されたもの）
     if os.path.exists(USER_FILE):
         with open(USER_FILE, "r") as f:
-            return json.load(f).get("user_id", "")
-    return ""
+            uid = json.load(f).get("user_id", "")
+            if uid:
+                return uid
+    # フォールバック：環境変数から読む（Renderスリープでファイルが消えた場合）
+    return os.environ.get("LINE_USER_ID", "")
+
 
 
 def verify_signature(body, signature):
