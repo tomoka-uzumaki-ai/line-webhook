@@ -110,8 +110,10 @@ def webhook():
     if not verify_signature(body, signature):
         abort(403)
 
-    data = json.loads(body)
+        data = json.loads(body)
     messages = load_messages()
+    # 重複排除用：既存メッセージIDのセット
+    existing_ids = {m.get("message_id") for m in messages if m.get("message_id")}
     new_count = 0
 
     for event in data.get("events", []):
@@ -121,16 +123,24 @@ def webhook():
             save_user_id(user_id)
 
         if event["type"] == "message" and event["message"]["type"] == "text":
+            msg_id = event["message"]["id"]
+            # 再送による重複を防ぐ
+            if msg_id in existing_ids:
+                continue
+            existing_ids.add(msg_id)
+
             ts = event["timestamp"] / 1000
             dt = datetime.fromtimestamp(ts, tz=JST)
             messages.append(
                 {
+                    "message_id": msg_id,
                     "datetime": dt.strftime("%Y-%m-%d %H:%M"),
                     "text": event["message"]["text"],
                 }
             )
             new_count += 1
             reply_to_line(event.get("replyToken", ""), "memo ok")
+
 
     if new_count > 0:
         save_messages(messages)
